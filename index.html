@@ -344,10 +344,10 @@
   // ── お会計完了（待ちリストから削除）─────────────────────────
   function completeKaikei(num) {
     kaikeiRef.transaction(data => {
-      const d = data || { current: null, waiting: [], timestamp: Date.now(), infoTimestamp: 0 };
+      const d = data || { current: null, waiting: [], timestamp: 0, infoTimestamp: 0 };
       d.waiting = (Array.isArray(d.waiting) ? d.waiting : []).filter(n => n !== num);
       if (d.current === num) d.current = null;
-      d.timestamp = Date.now();
+      // timestamp は変えない → リスナーが音声を再生しない
       return d;
     });
   }
@@ -448,23 +448,29 @@
   function playChime() {
     return new Promise(resolve => {
       const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      const notes = [784, 1047, 988, 1319];
+      // お会計専用チャイム（他アプリのG5-C6-B5-E6と異なる音程：F5-A5-C6-F6 下降形）
+      const notes = [
+        { freq: 698, dur: 0.4 },
+        { freq: 880, dur: 0.4 },
+        { freq: 523, dur: 0.4 },
+        { freq: 698, dur: 0.6 },
+      ];
       let time = ctx.currentTime;
-      notes.forEach(freq => {
+      notes.forEach(({ freq, dur }) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.connect(gain);
         gain.connect(ctx.destination);
-        osc.type = 'sine';
+        osc.type = 'triangle';
         osc.frequency.setValueAtTime(freq, time);
         gain.gain.setValueAtTime(0, time);
-        gain.gain.linearRampToValueAtTime(0.4, time + 0.02);
-        gain.gain.exponentialRampToValueAtTime(0.001, time + 0.35);
+        gain.gain.linearRampToValueAtTime(0.35, time + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.001, time + dur);
         osc.start(time);
-        osc.stop(time + 0.35);
-        time += 0.18;
+        osc.stop(time + dur);
+        time += 0.22;
       });
-      setTimeout(resolve, notes.length * 180 + 200);
+      setTimeout(resolve, notes.length * 220 + 250);
     });
   }
 
